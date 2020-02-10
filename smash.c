@@ -11,8 +11,14 @@
 // TODO: ls&ls
 // TODO: Make all error messages run correctly and when they are supposed to
 
-void runcommand(char** command, int size_command, char** path, int size_path) {
+void runcommand(char** command, int size_command, char** path, int size_path, FILE* redirection) {
+    for (int x = 0; x < size_command; x++)
+        printf("run: %s, size_command: %d\n", command[x], size_command);
     char check[1024];
+    if (redirection != NULL) {
+        int newfd = fileno(redirection);
+        dup2(newfd, 1);
+    }
     for (int i = 0; i < size_path; i++) {
         //build each path with executable
         snprintf(check, 1024, "%s/%s", path[i], command[0]);
@@ -20,46 +26,91 @@ void runcommand(char** command, int size_command, char** path, int size_path) {
         if (access(check, X_OK) == 0) {
             //run the command
             execv(check, command);
-        } else {
-            char error_message[30] = "An error has occurred\n";
-            write(STDERR_FILENO, error_message, strlen(error_message));
         }
     }
+    char error_message[30] = "An error has occurred\n";
+    write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
 void parsecommand(char** command, int size_command, char** path, int size_path) {
+    char(** allcommands)[256];
+    int numcommands;
     char** cla = malloc(sizeof(char*) * 256);
     int i = 0;
     int children = 0;
     int size = 0;
+    FILE** redirection = malloc(sizeof(FILE*) * 256);
+    int size_file = 0;
+    int redirect = -1;
     while (i < size_command) {
+        redirect = -1;
         size = 0;
-        while (i < size_command && strcmp(command[i], "&") != 0) {
-            if (strcmp(command[i], ";") == 0) {
-                int pid = fork();
-                if (pid == 0) {
-                    runcommand(cla, size, path, size_path);
+        if (strcmp(command[i], ">") == 0) {
+            i++;
+            redirection[size_file] = fopen(command[i], "w");
+            redirect = 1;
+            size_file++;
+            i++;
+        } else if (strcmp(command[i], "&") == 0) {
+            int pid = fork();
+            if (pid == 0) {
+                if (redirect == -1) {
+                    runcommand(cla, size, path, size_path, NULL);
                 } else {
-                    size = 0;
-                    i++;
-                    wait(NULL);
+                    runcommand(cla, size, path, size_path, redirection[size_file - 1]);
                 }
             } else {
-                cla[i] = command[i];
-                size++;
-                i++;
+                size = 0;
+                free(cla);
+                cla = malloc(sizeof(char*) * 256);
+                children++;
             }
-        }
-        int pid = fork();
-        if (pid == 0) {
-            runcommand(cla, size, path, size_path);
+            i++;
+        } else if (strcmp(command[i], ";") == 0) {
+            int pid = fork();
+            if (pid == 0) {
+                if (redirect == -1) {
+                    runcommand(cla, size, path, size_path, NULL);
+                } else {
+                    runcommand(cla, size, path, size_path, redirection[size_file - 1]);
+                }
+            } else {
+                children++;
+                size = 0;
+                i++;
+                free(cla);
+                cla = malloc(sizeof(char*) * 256);
+                for (int x = 0; x < children; x++) {
+                    wait(NULL);
+                }
+                children = 0;
+                for (int x = 0; x < size_file; x++) {
+                    fclose(redirection[x]);
+                }
+                size_file = 0;
+            }
         } else {
-            children++;
+            cla[size] = command[i];
+            size++;
+            i++;
         }
-        i++;
     }
-    for (int x = 0; x < children; x++) {
-        wait(NULL);
+    int pid = fork();
+    if (pid == 0) {
+        if (redirect == -1) {
+            runcommand(cla, size, path, size_path, NULL);
+        } else {
+            runcommand(cla, size, path, size_path, redirection[size_file - 1]);
+        }
+    } else {
+        children++;
+        for (int x = 0; x < children; x++) {
+            wait(NULL);
+        }
+        for (int x = 0; x < size_file; x++) {
+            fclose(redirection[x]);
+        }
+        free(redirection);
     }
     free(cla);
 }
@@ -70,8 +121,11 @@ void mainloop(FILE* file) {
     int size_path = 1;
     char* input;
     size_t size = 0;
-    printf("smash> ");
-    fflush(stdout);
+    if (file == stdin) {
+        printf("smash> ");
+        fflush(stdout);
+    }
+
     //while not EOF
     while (getline(&input, &size, file) != -1) {
         //stores the CLA input
@@ -146,29 +200,18 @@ void mainloop(FILE* file) {
                 int size_command = 0;
                 for (int i = 0; i <= count; i++) {
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
-                        char* found;
-                        if ((found = strstr(out[i], "&")) != NULL && strcmp(out[i], "&") != 0) {
-                            while ((found = strtok_r(found, "&", &found)) != NULL) {
-                                command[size_command] = malloc(1 + found - out[i]);
-                                strncpy(command[size_command], out[i], found - out[i] - 1);
-                                command[size_command][found - out[i]] = '\0';
-                                size_command++;
-                                command[size_command] = "&";
-                                size_command++;
-                                found++;
-                            }
-                        } else {
-                            command[size_command] = out[i];
-                            size_command++;
-                        }
+                        command[size_command] = out[i];
+                        size_command++;
                     }
                 }
                 parsecommand(command, size_command, path, size_path);
                 free(command);
             }
         }
-        printf("smash> ");
-        fflush(stdout);
+        if (file == stdin) {
+            printf("smash> ");
+            fflush(stdout);
+        }
     }
     fclose(file);
     exit(0);
