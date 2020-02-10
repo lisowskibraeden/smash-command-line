@@ -5,17 +5,26 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void runcommand(char** command, char** path, int size_path) {
+void parsecommand(char** command, int size_command, char** path, int size_path) {
+    printf("ehlo\n");
+}
+
+void runcommand(char** command, int size_command, char** path, int size_path) {
     char check[1024];
     for (int i = 0; i < size_path; i++) {
+        //build each path with executable
         snprintf(check, 1024, "%s/%s", path[i], command[0]);
+        //check if executable can run
         if (access(check, X_OK) == 0) {
+            //run the command
             int pid = fork();
             if (pid == 0) {
+                //child runs
                 char* cla[255];
                 memcpy(cla, command, 256);
                 execv(check, cla);
             } else {
+                //parent waits until done
                 wait(NULL);
             }
         } else {
@@ -41,6 +50,7 @@ void mainloop(FILE* file) {
         while ((out[count + 1] = strtok_r(input, " ", &input)) != NULL) {
             count++;
         }
+        //if just an endline rerun loop
         if (strcmp(out[0], "\n") != 0) {
             //remove the \n from the last item
             out[count][strcspn(out[count], "\n")] = '\0';
@@ -96,12 +106,42 @@ void mainloop(FILE* file) {
                 }
             } else {  //other command
                 char** command = malloc(sizeof(char*) * 256);
+                int size_command = 0;
                 for (int i = 0; i <= count; i++) {
-                    if (strcmp(out[i], "&") != 0 && strcmp(out[i], ">") != 0 && strcmp(out[i], ";") != 0 && strcmp(out[i], "") != 0 && out[i][0] != '\0') {
-                        command[i] = out[i];
+                    if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
+                        char* found;
+                        char* lastfound;
+                        if ((found = strstr(out[i], "&")) != NULL) {
+                            do {
+                                command[size_command] = malloc(1 + found - out[i]);
+                                strncpy(command[size_command], out[i], found - out[i]);
+                                command[size_command][found - out[i]] = '\0';
+                                if(strcmp(command[size_command], "") == 0){
+                                    free(command[size_command]);
+                                    size_command--;
+                                }
+                                size_command++;
+                                command[size_command] = malloc(1);
+                                strncpy(command[size_command], found, 1);
+                                size_command++;
+                                found++;
+                                lastfound = found;
+                            } while ((found = strstr(found, "&")) != NULL);
+                            if (strcmp(lastfound, "") != 0) {
+                                command[size_command] = lastfound;
+                                size_command++;
+                            }
+                        } else {
+                            command[size_command] = out[i];
+                            size_command++;
+                        }
                     }
                 }
-                runcommand(command, path, size_path);
+                printf("print\n");
+                for (int i = 0; i < size_command; i++) {
+                    printf("index: %d string: %s\n", i, command[i]);
+                }
+                parsecommand(command, size_command, path, size_path);
             }
         }
         printf("smash>");
