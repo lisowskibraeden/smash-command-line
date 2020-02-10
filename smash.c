@@ -11,7 +11,6 @@
 // TODO: ls&ls
 // TODO: Make all error messages run correctly and when they are supposed to
 
-
 void runcommand(char** command, int size_command, char** path, int size_path) {
     char check[1024];
     for (int i = 0; i < size_path; i++) {
@@ -40,7 +39,7 @@ void parsecommand(char** command, int size_command, char** path, int size_path) 
                 int pid = fork();
                 if (pid == 0) {
                     runcommand(cla, size, path, size_path);
-                }else{
+                } else {
                     size = 0;
                     i++;
                     wait(NULL);
@@ -71,7 +70,8 @@ void mainloop(FILE* file) {
     int size_path = 1;
     char* input;
     size_t size = 0;
-    printf("smash>");
+    printf("smash> ");
+    fflush(stdout);
     //while not EOF
     while (getline(&input, &size, file) != -1) {
         //stores the CLA input
@@ -167,7 +167,8 @@ void mainloop(FILE* file) {
                 free(command);
             }
         }
-        printf("smash>");
+        printf("smash> ");
+        fflush(stdout);
     }
     fclose(file);
     exit(0);
