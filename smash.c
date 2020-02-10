@@ -5,6 +5,13 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// TODO: For parallel and multiple commands, syntax errors (e.g., ls; > output) or invalid programs names (e.g., a mistyped ls, like lss) should prevent the entire line from executing.
+// TODO: Your shell should support multiple built-in commands, such as ls ; cd foo ; ls
+// TODO: Redirection should be supported (e.g., cmd1 > output & cmd 2).
+// TODO: ls&ls
+// TODO: Make all error messages run correctly and when they are supposed to
+
+
 void runcommand(char** command, int size_command, char** path, int size_path) {
     char check[1024];
     for (int i = 0; i < size_path; i++) {
@@ -29,21 +36,33 @@ void parsecommand(char** command, int size_command, char** path, int size_path) 
     while (i < size_command) {
         size = 0;
         while (i < size_command && strcmp(command[i], "&") != 0) {
-            cla[i] = command[i];
-            size++;
-            i++;
+            if (strcmp(command[i], ";") == 0) {
+                int pid = fork();
+                if (pid == 0) {
+                    runcommand(cla, size, path, size_path);
+                }else{
+                    size = 0;
+                    i++;
+                    wait(NULL);
+                }
+            } else {
+                cla[i] = command[i];
+                size++;
+                i++;
+            }
         }
         int pid = fork();
         if (pid == 0) {
             runcommand(cla, size, path, size_path);
-        }else{
+        } else {
             children++;
         }
         i++;
     }
-    for(int x = 0; x < children; x++){
+    for (int x = 0; x < children; x++) {
         wait(NULL);
     }
+    free(cla);
 }
 
 void mainloop(FILE* file) {
@@ -75,6 +94,7 @@ void mainloop(FILE* file) {
             if (strcmp(out[0], "exit") == 0) {
                 if (count == 0) {
                     free(out);
+                    free(path);
                     fclose(file);
                     exit(0);
                 } else {
@@ -127,7 +147,6 @@ void mainloop(FILE* file) {
                 for (int i = 0; i <= count; i++) {
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
                         char* found;
-                        char* lastfound;
                         if ((found = strstr(out[i], "&")) != NULL && strcmp(out[i], "&") != 0) {
                             while ((found = strtok_r(found, "&", &found)) != NULL) {
                                 command[size_command] = malloc(1 + found - out[i]);
@@ -145,6 +164,7 @@ void mainloop(FILE* file) {
                     }
                 }
                 parsecommand(command, size_command, path, size_path);
+                free(command);
             }
         }
         printf("smash>");
