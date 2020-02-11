@@ -12,12 +12,11 @@
 // TODO: Make all error messages run correctly and when they are supposed to
 
 void runcommand(char** command, int size_command, char** path, int size_path, FILE* redirection) {
-    for (int x = 0; x < size_command; x++)
-        printf("run: %s, size_command: %d\n", command[x], size_command);
     char check[1024];
     if (redirection != NULL) {
         int newfd = fileno(redirection);
         dup2(newfd, 1);
+        dup2(newfd, 2);
     }
     for (int i = 0; i < size_path; i++) {
         //build each path with executable
@@ -33,86 +32,97 @@ void runcommand(char** command, int size_command, char** path, int size_path, FI
 }
 
 void parsecommand(char** command, int size_command, char** path, int size_path) {
-    char(** allcommands)[256];
-    int numcommands;
+    char*and = "&";
+    char* semicolon = ";";
+    char** allcommands[256];
+    int lengthcommand[256];
+    for (int o = 0; o < 256; o++) {
+        lengthcommand[o] = 0;
+    }
+    int numcommands = 0;
     char** cla = malloc(sizeof(char*) * 256);
     int i = 0;
-    int children = 0;
     int size = 0;
     FILE** redirection = malloc(sizeof(FILE*) * 256);
-    int size_file = 0;
-    int redirect = -1;
     while (i < size_command) {
-        redirect = -1;
-        size = 0;
         if (strcmp(command[i], ">") == 0) {
             i++;
-            redirection[size_file] = fopen(command[i], "w");
-            redirect = 1;
-            size_file++;
+            redirection[numcommands] = fopen(command[i], "w");
             i++;
         } else if (strcmp(command[i], "&") == 0) {
-            int pid = fork();
-            if (pid == 0) {
-                if (redirect == -1) {
-                    runcommand(cla, size, path, size_path, NULL);
-                } else {
-                    runcommand(cla, size, path, size_path, redirection[size_file - 1]);
-                }
-            } else {
-                size = 0;
-                free(cla);
-                cla = malloc(sizeof(char*) * 256);
-                children++;
-            }
+            allcommands[numcommands] = cla;
+            lengthcommand[numcommands] = size;
+            numcommands++;
+            allcommands[numcommands] = &and;
+            lengthcommand[numcommands] = 1;
+            numcommands++;
+            size = 0;
+            cla = malloc(sizeof(char*) * 256);
             i++;
         } else if (strcmp(command[i], ";") == 0) {
-            int pid = fork();
-            if (pid == 0) {
-                if (redirect == -1) {
-                    runcommand(cla, size, path, size_path, NULL);
-                } else {
-                    runcommand(cla, size, path, size_path, redirection[size_file - 1]);
-                }
-            } else {
-                children++;
-                size = 0;
-                i++;
-                free(cla);
-                cla = malloc(sizeof(char*) * 256);
-                for (int x = 0; x < children; x++) {
-                    wait(NULL);
-                }
-                children = 0;
-                for (int x = 0; x < size_file; x++) {
-                    fclose(redirection[x]);
-                }
-                size_file = 0;
-            }
+            allcommands[numcommands] = cla;
+            lengthcommand[numcommands] = size;
+            numcommands++;
+            allcommands[numcommands] = &semicolon;
+            lengthcommand[numcommands] = 1;
+            numcommands++;
+            size = 0;
+            i++;
+            cla = malloc(sizeof(char*) * 256);
         } else {
             cla[size] = command[i];
             size++;
             i++;
         }
     }
-    int pid = fork();
-    if (pid == 0) {
-        if (redirect == -1) {
-            runcommand(cla, size, path, size_path, NULL);
-        } else {
-            runcommand(cla, size, path, size_path, redirection[size_file - 1]);
+    allcommands[numcommands] = cla;
+    lengthcommand[numcommands] = size;
+    numcommands++;
+    char check[1024];
+    int* isgood = calloc(numcommands, sizeof(int));
+    for (int x = 0; x < numcommands; x++) {
+        if (strcmp(allcommands[x][0], "&") == 0 || strcmp(allcommands[x][0], ";") == 0) {
+            isgood[x] = 1;
         }
+        for (int j = 0; j < size_path; j++) {
+            snprintf(check, 1024, "%s/%s", path[j], allcommands[x][0]);
+            if (access(check, X_OK) == 0) {
+                isgood[x] = 1;
+            }
+        }
+    }
+    int checkgood = 1;
+    for (int x = 0; x < numcommands; x++) {
+        if (isgood[x] != 1) {
+            checkgood = -1;
+        }
+    }
+    if (checkgood != 1) {
+        char error_message[30] = "An error has occurred\n";
+        write(STDERR_FILENO, error_message, strlen(error_message));
     } else {
-        children++;
+        int children = 0;
+        for (int x = 0; x < numcommands; x++) {
+            if (strcmp(allcommands[x][0], ";") == 0) {
+                for (int j = 0; j < children; j++) {
+                    wait(NULL);
+                }
+                children = 0;
+            } else if (strcmp(allcommands[x][0], "&") == 0) {
+                // skip
+            } else {
+                int pid = fork();
+                if (pid == 0) {
+                    runcommand(allcommands[x], lengthcommand[x], path, size_path, redirection[x]);
+                } else {
+                    children++;
+                }
+            }
+        }
         for (int x = 0; x < children; x++) {
             wait(NULL);
         }
-        for (int x = 0; x < size_file; x++) {
-            fclose(redirection[x]);
-        }
-        free(redirection);
     }
-    free(cla);
 }
 
 void mainloop(FILE* file) {
