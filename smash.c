@@ -251,10 +251,12 @@ void mainloop(FILE* file) {
                     char* found;
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
                         if ((found = strstr(out[i], ";")) != NULL) {
-                            command[size_command] = malloc(1 + strlen(out[i]) - strlen(found));
-                            strncpy(command[size_command], out[i], strlen(out[i]) - strlen(found));
-                            command[size_command][strlen(out[i]) - strlen(found)] = '\0';
-                            size_command++;
+                            if (strlen(out[i]) - strlen(found) != 0) {
+                                command[size_command] = malloc(1 + strlen(out[i]) - strlen(found));
+                                strncpy(command[size_command], out[i], strlen(out[i]) - strlen(found));
+                                command[size_command][strlen(out[i]) - strlen(found)] = '\0';
+                                size_command++;
+                            }
                             command[size_command] = ";";
                             size_command++;
                             found++;
@@ -267,16 +269,15 @@ void mainloop(FILE* file) {
                                 size_command++;
                                 found = newfound + 1;
                             }
-                            command[size_command] = found;
-                            size_command++;
+                            if (strcmp(found, "") != 0) {
+                                command[size_command] = found;
+                                size_command++;
+                            }
                         } else {
                             command[size_command] = out[i];
                             size_command++;
                         }
                     }
-                }
-                for (int i = 0; i < size_command; i++) {
-                    printf("%s\n", command[i]);
                 }
                 parsecommand(command, size_command, path);
                 free(command);
