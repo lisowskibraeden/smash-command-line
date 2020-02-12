@@ -182,7 +182,7 @@ void parsecommand(char** command, int size_command, char** path) {
                 } else if (strcmp(allcommands[x][0], "exit") == 0) {
                     free(cla);
                     for (int j = 0; j < 256; j++) {
-                        if(redirection[j] != NULL){
+                        if (redirection[j] != NULL) {
                             fclose(redirection[j]);
                         }
                     }
@@ -207,7 +207,7 @@ void parsecommand(char** command, int size_command, char** path) {
 void mainloop(FILE* file) {
     char** path = malloc(sizeof(char*) * 256);
     path[0] = "/bin";
-    
+
     char* input;
     size_t size = 0;
     if (file == stdin) {  //don't write prompt to file
@@ -248,13 +248,34 @@ void mainloop(FILE* file) {
                 int size_command = 0;
                 //create an array with each CLA its own element
                 for (int i = 0; i <= count; i++) {
-
+                    char* found;
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
-                        command[size_command] = out[i];
-                        size_command++;
+                        if ((found = strstr(out[i], ";")) != NULL) {
+                            command[size_command] = malloc(1 + strlen(out[i]) - strlen(found));
+                            strncpy(command[size_command], out[i], strlen(out[i]) - strlen(found));
+                            command[size_command][strlen(out[i]) - strlen(found)] = '\0';
+                            size_command++;
+                            command[size_command] = ";";
+                            size_command++;
+                            found++;
+                            char* newfound;
+                            while ((newfound = strstr(found, ";")) != NULL) {
+                                command[size_command] = malloc(1 + strlen(found) - strlen(newfound));
+                                strncpy(command[size_command], out[i], strlen(found) - strlen(newfound));
+                                size_command++;
+                                command[size_command] = ";";
+                                size_command++;
+                                found = newfound + 1;
+                            }
+                            command[size_command] = found;
+                            size_command++;
+                        } else {
+                            command[size_command] = out[i];
+                            size_command++;
+                        }
                     }
                 }
-                for(int i = 0; i < size_command; i++){
+                for (int i = 0; i < size_command; i++) {
                     printf("%s\n", command[i]);
                 }
                 parsecommand(command, size_command, path);
