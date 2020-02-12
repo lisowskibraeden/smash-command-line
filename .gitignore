@@ -1,0 +1,9 @@
+*.out
+*.log
+*.sh
+folder/
+test/
+*.txt
+test.c
+*.json
+.*
