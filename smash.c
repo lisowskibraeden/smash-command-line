@@ -246,31 +246,88 @@ void mainloop(FILE* file) {
             } else {  //other command
                 char** command = malloc(sizeof(char*) * 256);
                 int size_command = 0;
+                char* syntax[3] = {";", "&", ">"};
+                int length[3] = {-1, -1, -1};
                 //create an array with each CLA its own element
                 for (int i = 0; i <= count; i++) {
-                    char* found;
+                    char** found = malloc(sizeof(char*) * 3);
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
-                        if ((found = strstr(out[i], ";")) != NULL) {
-                            if (strlen(out[i]) - strlen(found) != 0) {
-                                command[size_command] = malloc(1 + strlen(out[i]) - strlen(found));
-                                strncpy(command[size_command], out[i], strlen(out[i]) - strlen(found));
-                                command[size_command][strlen(out[i]) - strlen(found)] = '\0';
+                        if ((found[0] = strstr(out[i], ";")) != NULL || (found[1] = strstr(out[i], "&")) != NULL || (found[2] = strstr(out[i], ">")) != NULL) {
+                            int which = -1;
+                            if (found[0] != NULL) {
+                                which = 0;
+                                length[0] = strlen(found[0]);
+                                found[1] = strstr(out[i], "&");
+                                found[2] = strstr(out[i], ">");
+                            }
+                            if (found[1] != NULL) {
+                                which = 1;
+                                length[1] = strlen(found[1]);
+                                found[2] = strstr(out[i], ">");
+                            }
+                            if (found[2] != NULL) {
+                                which = 2;
+                                length[2] = strlen(found[2]);
+                            }
+                            if (length[0] > length[1] && length[0] > length[2]) {
+                                which = 0;
+                            } else if (length[1] > length[0] && length[1] > length[2]) {
+                                which = 1;
+                            } else if (length[2] > length[1] && length[2] > length[0]) {
+                                which = 2;
+                            }
+                            if (strlen(out[i]) - strlen(found[which]) != 0) {
+                                command[size_command] = malloc(1 + strlen(out[i]) - strlen(found[which]));
+                                strncpy(command[size_command], out[i], strlen(out[i]) - strlen(found[which]));
+                                command[size_command][strlen(out[i]) - strlen(found[which])] = '\0';
                                 size_command++;
                             }
-                            command[size_command] = ";";
+                            command[size_command] = syntax[which];
                             size_command++;
-                            found++;
-                            char* newfound;
-                            while ((newfound = strstr(found, ";")) != NULL) {
-                                command[size_command] = malloc(1 + strlen(found) - strlen(newfound));
-                                strncpy(command[size_command], out[i], strlen(found) - strlen(newfound));
+                            found[which]++;
+                            char** newfound = malloc(sizeof(char*) * 3);
+                            int newwhich = -1;
+                            while ((newfound[0] = strstr(found[which], ";")) != NULL || (newfound[1] = strstr(found[which], "&")) != NULL || (newfound[2] = strstr(found[which], ">")) != NULL) {
+                                for (int k = 0; k < 3; k++) {
+                                    length[k] = -1;
+                                }
+                                if (newfound[0] != NULL) {
+                                    newwhich = 0;
+                                    length[0] = strlen(newfound[0]);
+                                    newfound[1] = strstr(found[which], "&");
+                                    newfound[2] = strstr(found[which], ">");
+                                }
+                                if (newfound[1] != NULL) {
+                                    newwhich = 1;
+                                    length[1] = strlen(newfound[1]);
+                                    newfound[2] = strstr(found[which], ">");
+                                }
+                                if (newfound[2] != NULL) {
+                                    newwhich = 2;
+                                    length[2] = strlen(newfound[2]);
+                                }
+                                if (length[0] > length[1] && length[0] > length[2]) {
+                                    newwhich = 0;
+                                } else if (length[1] > length[0] && length[1] > length[2]) {
+                                    newwhich = 1;
+                                } else if (length[2] > length[1] && length[2] > length[0]) {
+                                    newwhich = 2;
+                                }
+
+                                if (strlen(found[which]) - strlen(newfound[newwhich]) != 0) {
+                                    command[size_command] = malloc(1 + strlen(found[which]) - strlen(newfound[newwhich]));
+                                    strncpy(command[size_command], out[i], strlen(found[which]) - strlen(newfound[newwhich]));
+                                    command[size_command][strlen(found[which]) - strlen(newfound[newwhich])] = '\0';
+                                    size_command++;
+                                }
+                                command[size_command] = syntax[newwhich];
                                 size_command++;
-                                command[size_command] = ";";
-                                size_command++;
-                                found = newfound + 1;
+                                found[newwhich] = newfound[newwhich] + 1;
+                                which = newwhich;
                             }
-                            if (strcmp(found, "") != 0) {
-                                command[size_command] = found;
+                            free(newfound);
+                            if (strcmp(found[which], "") != 0) {
+                                command[size_command] = found[which];
                                 size_command++;
                             }
                         } else {
@@ -278,6 +335,7 @@ void mainloop(FILE* file) {
                             size_command++;
                         }
                     }
+                    free(found);
                 }
                 parsecommand(command, size_command, path);
                 free(command);
