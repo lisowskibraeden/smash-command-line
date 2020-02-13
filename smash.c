@@ -7,7 +7,6 @@
 
 int size_path = 1;
 
-// TODO: ls&ls
 // TODO: Make all error messages run correctly and when they are supposed to
 // TODO: empty commands
 
@@ -119,7 +118,7 @@ void parsecommand(char** command, int size_command, char** path) {
     int* isgood = calloc(numcommands, sizeof(int));
     //check to see if all commands are valid
     for (int x = 0; x < numcommands; x++) {
-        if (strcmp(allcommands[x][0], "cd") == 0) {
+        if (strcmp(allcommands[x][0], "cd") == 0) {  //check if built in commands
             if (lengthcommand[x] == 2) {
                 isgood[x] = 1;
             }
@@ -137,10 +136,10 @@ void parsecommand(char** command, int size_command, char** path) {
             if (lengthcommand[x] == 1) {
                 isgood[x] = 1;
             }
-        } else if (strcmp(allcommands[x][0], "&") == 0 || strcmp(allcommands[x][0], ";") == 0) {
+        } else if (strcmp(allcommands[x][0], "&") == 0 || strcmp(allcommands[x][0], ";") == 0) {  //allow syntax
             isgood[x] = 1;
         } else {
-            for (int j = 0; j < size_path; j++) {
+            for (int j = 0; j < size_path; j++) {  //check external commands
                 snprintf(check, 1024, "%s/%s", path[j], allcommands[x][0]);
                 if (access(check, X_OK) == 0) {
                     isgood[x] = 1;
@@ -222,6 +221,7 @@ void mainloop(FILE* file) {
         //seperate out each CLA
         while ((out[count + 1] = strtok_r(input, " ", &input)) != NULL) {
             char* tabs;
+            //remove tabs
             while ((tabs = strstr(out[count + 1], "\t")) != NULL) {
                 int index = tabs - out[count + 1];
                 memmove(&out[count + 1][index], &out[count + 1][index] + 1, strlen(out[count + 1]) - index);
@@ -235,9 +235,6 @@ void mainloop(FILE* file) {
             //exit command
             if (strcmp(out[0], "exit") == 0) {
                 if (count == 0) {
-                    free(out);
-                    free(path);
-                    fclose(file);
                     exit(0);
                 } else {
                     char error_message[30] = "An error has occurred\n";
@@ -252,7 +249,11 @@ void mainloop(FILE* file) {
                 for (int i = 0; i <= count; i++) {
                     char** found = malloc(sizeof(char*) * 3);
                     if (strcmp(out[i], "") != 0 && out[i][0] != '\0') {
+                        //seperate out if no space
                         if ((found[0] = strstr(out[i], ";")) != NULL || (found[1] = strstr(out[i], "&")) != NULL || (found[2] = strstr(out[i], ">")) != NULL) {
+                            for (int k = 0; k < 3; k++) {
+                                length[k] = -1;
+                            }
                             int which = -1;
                             if (found[0] != NULL) {
                                 which = 0;
@@ -287,6 +288,7 @@ void mainloop(FILE* file) {
                             found[which]++;
                             char** newfound = malloc(sizeof(char*) * 3);
                             int newwhich = -1;
+                            //while there are still more syntax and commands with no space seperating
                             while ((newfound[0] = strstr(found[which], ";")) != NULL || (newfound[1] = strstr(found[which], "&")) != NULL || (newfound[2] = strstr(found[which], ">")) != NULL) {
                                 for (int k = 0; k < 3; k++) {
                                     length[k] = -1;
@@ -313,10 +315,9 @@ void mainloop(FILE* file) {
                                 } else if (length[2] > length[1] && length[2] > length[0]) {
                                     newwhich = 2;
                                 }
-
                                 if (strlen(found[which]) - strlen(newfound[newwhich]) != 0) {
                                     command[size_command] = malloc(1 + strlen(found[which]) - strlen(newfound[newwhich]));
-                                    strncpy(command[size_command], out[i], strlen(found[which]) - strlen(newfound[newwhich]));
+                                    strncpy(command[size_command], found[which], strlen(found[which]) - strlen(newfound[newwhich]));
                                     command[size_command][strlen(found[which]) - strlen(newfound[newwhich])] = '\0';
                                     size_command++;
                                 }
