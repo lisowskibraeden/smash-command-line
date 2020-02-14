@@ -8,7 +8,6 @@
 int size_path = 1;
 
 // TODO: Make all error messages run correctly and when they are supposed to
-// TODO: empty commands
 
 void path_command(char** out, int count, char** path) {
     if (count == 3) {
@@ -32,6 +31,7 @@ void path_command(char** out, int count, char** path) {
         }
     }
 }
+
 void cd(char** out, int count) {
     if (chdir(out[1]) != 0) {
         char error_message[30] = "An error has occurred\n";
@@ -86,9 +86,11 @@ void parsecommand(char** command, int size_command, char** path) {
                 doulberedirect = 1;
             }
         } else if (strcmp(command[i], "&") == 0) {
-            allcommands[numcommands] = cla;
-            lengthcommand[numcommands] = size;
-            numcommands++;
+            if (size != 0) {
+                allcommands[numcommands] = cla;
+                lengthcommand[numcommands] = size;
+                numcommands++;
+            }
             allcommands[numcommands] = &and;
             lengthcommand[numcommands] = 1;
             numcommands++;
@@ -96,9 +98,11 @@ void parsecommand(char** command, int size_command, char** path) {
             cla = malloc(sizeof(char*) * 256);
             i++;
         } else if (strcmp(command[i], ";") == 0) {
-            allcommands[numcommands] = cla;
-            lengthcommand[numcommands] = size;
-            numcommands++;
+            if (size != 0) {
+                allcommands[numcommands] = cla;
+                lengthcommand[numcommands] = size;
+                numcommands++;
+            }
             allcommands[numcommands] = &semicolon;
             lengthcommand[numcommands] = 1;
             numcommands++;
