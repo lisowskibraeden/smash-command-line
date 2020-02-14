@@ -7,8 +7,6 @@
 
 int size_path = 1;
 
-// TODO: Make all error messages run correctly and when they are supposed to
-
 void path_command(char** out, int count, char** path) {
     if (count == 3) {
         if (strcmp(out[1], "add") == 0) {  //add
@@ -57,6 +55,7 @@ void runcommand(char** command, int size_command, char** path, FILE* redirection
     }
     char error_message[30] = "An error has occurred\n";
     write(STDERR_FILENO, error_message, strlen(error_message));
+    exit(1); //only ever ran as a child so do not return to main loop
 }
 
 void parsecommand(char** command, int size_command, char** path) {
@@ -74,6 +73,7 @@ void parsecommand(char** command, int size_command, char** path) {
     int size = 0;
     FILE** redirection = malloc(sizeof(FILE*) * 256);
     //run through each CLA and handle special syntax
+    //measure out the length of each command
     while (i < size_command) {
         //create a file for redirection and place in array
         if (strcmp(command[i], ">") == 0) {
@@ -178,6 +178,7 @@ void parsecommand(char** command, int size_command, char** path) {
             } else if (strcmp(allcommands[x][0], "&") == 0) {
                 // skip
             } else {
+                //check built-in commands
                 if (strcmp(allcommands[x][0], "cd") == 0) {
                     cd(allcommands[x], lengthcommand[x]);
                 } else if (strcmp(allcommands[x][0], "path") == 0) {
@@ -192,6 +193,7 @@ void parsecommand(char** command, int size_command, char** path) {
                     free(redirection);
                     exit(0);
                 } else {
+                    //if not built in command fork
                     int pid = fork();
                     if (pid == 0) {
                         runcommand(allcommands[x], lengthcommand[x], path, redirection[x]);
@@ -259,6 +261,7 @@ void mainloop(FILE* file) {
                                 length[k] = -1;
                             }
                             int which = -1;
+                            //find which syntax was found
                             if (found[0] != NULL) {
                                 which = 0;
                                 length[0] = strlen(found[0]);
@@ -274,6 +277,7 @@ void mainloop(FILE* file) {
                                 which = 2;
                                 length[2] = strlen(found[2]);
                             }
+                            //check if mutliple syntax found which one is earliest in the string
                             if (length[0] > length[1] && length[0] > length[2]) {
                                 which = 0;
                             } else if (length[1] > length[0] && length[1] > length[2]) {
